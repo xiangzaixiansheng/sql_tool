@@ -48,7 +48,7 @@ func CsvTosql(tablename, inputpath, outputpath string) {
 			fields := bytes.Split(line, csvSep)
 			err = writeInsertIntoFields(outFile, tablename, fields)
 			if err != nil {
-				log.Printf("cannot write file %s: %v", outputpath, err)
+				fmt.Printf("cannot write file %s: %v", outputpath, err)
 				os.Exit(1)
 			}
 			continue
@@ -57,20 +57,20 @@ func CsvTosql(tablename, inputpath, outputpath string) {
 		if i != 1 {
 			_, err := outFile.Write([]byte{',', '\n'})
 			if err != nil {
-				log.Printf("cannot write file %s: %v", outputpath, err)
+				fmt.Printf("cannot write file %s: %v", outputpath, err)
 				os.Exit(1)
 			}
 		}
 		values := bytes.Split(line, csvSep)
 		err = writeValues(outFile, values)
 		if err != nil {
-			log.Printf("cannot write file %s: %v", outputpath, err)
+			fmt.Printf("cannot write file %s: %v", outputpath, err)
 			os.Exit(1)
 		}
 	}
 	_, err = outFile.Write([]byte{';', '\n'})
 	if err != nil {
-		log.Printf("cannot write file %s: %v", outputpath, err)
+		fmt.Printf("cannot write file %s: %v", outputpath, err)
 		os.Exit(1)
 	}
 }
