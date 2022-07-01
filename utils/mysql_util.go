@@ -2,7 +2,9 @@ package utils
 
 import (
 	"fmt"
+	"os"
 	conf "sql_tool/conf"
+	"time"
 
 	//切记：导入驱动包
 	"database/sql"
@@ -28,8 +30,10 @@ func InitMysql() {
 	db1, err := sql.Open(driverName, dbConn)
 	if err != nil {
 		fmt.Println(err.Error())
+		os.Exit(1)
 	} else {
 		db = db1
+		db.SetConnMaxLifetime(time.Hour * 4)
 	}
 }
 

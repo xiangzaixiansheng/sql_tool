@@ -61,7 +61,82 @@ ini: gopkg.in/ini.v1
 
 
 
-TODO:
+### 错误记录：
+
+1、gorm的 busy buffer问题
+
+```
+[mysql] 2022/07/01 12:02:04 packets.go:428: busy buffer
+invalid connection
+invalid connection Rows error.
+```
+
+例如我们查询的数据量比较大的话，可能会耗时比较长。
+
+我们可以先看一下mysql数据库的超时时间：
+
+```
+SHOW VARIABLES LIKE '%timeout%'
+```
+
+
+
+| connect_timeout             | 10       |
+| --------------------------- | -------- |
+| delayed_insert_timeout      | 300      |
+| have_statement_timeout      | YES      |
+| innodb_flush_log_at_timeout | 1        |
+| innodb_lock_wait_timeout    | 20       |
+| innodb_rollback_on_timeout  | OFF      |
+| interactive_timeout         | 300      |
+| lock_wait_timeout           | 31536000 |
+| net_read_timeout            | 30       |
+| net_write_timeout           | 60       |
+| rpl_stop_slave_timeout      | 31536000 |
+| slave_net_timeout           | 60       |
+| wait_timeout                | 300      |
+
+**connect_time**
+
+connect_timeout指的是连接过程中握手的超时时间，即MySQL客户端在尝试与MySQL服务器建立连接时，MySQL服务器返回错误握手协议前等待客户端数据包的最大时限。默认10秒。
+
+**interactive_timeout / wait_timeout**
+
+MySQL关闭交互/非交互连接前等待的最大时限。默认28800秒。
+
+**lock_wait_timeout**
+
+sql语句请求元数据锁的最长等待时间，默认为一年。此锁超时对于隐式访问Mysql库中系统表的sql语句无效，但是对于使用select，update语句直接访问MySQL库中标的sql语句有效。
+
+**net_read_timeout / net_write_timeout**
+
+mysql服务器端等待从客户端读取数据 / 向客户端写入数据的最大时限，默认30秒。
+
+**slave_net_timeout**
+
+mysql从复制连结等待读取数据的最大时限，默认3600秒。
+
+解决办法：
+
+MySQL doesn't provide safe and efficient canceling mechanism. When context is cancelled or reached `readTimeout`, `DB.ExecContext` returns without terminating using connection. It cause "invalid connection" next time the connection is used.
+
+https://dev.mysql.com/doc/refman/5.7/en/optimizer-hints.html#optimizer-hints-execution-time
+
+```sql
+MAX_EXECUTION_TIME(N)
+```
+
+Example with a timeout of 1 second (1000 milliseconds):
+
+```sql
+SELECT /*+ MAX_EXECUTION_TIME(1000) */ * FROM t1 INNER JOIN t2 WHERE ...
+```
+
+
+
+
+
+### TODO:
 
 1⃣️查询数据生成json文件
 
