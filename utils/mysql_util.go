@@ -33,7 +33,9 @@ func InitMysql() {
 		os.Exit(1)
 	} else {
 		db = db1
-		db.SetConnMaxLifetime(time.Hour * 4)
+		db.SetConnMaxLifetime(time.Hour * 4) //超时
+		db.SetMaxIdleConns(20)
+		db.SetMaxOpenConns(20) //设置最多打开20个数据连连接
 	}
 }
 

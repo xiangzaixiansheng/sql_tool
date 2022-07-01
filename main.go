@@ -15,11 +15,11 @@ func main() {
 	rows, _ := utils.Query("SELECT * FROM cusCopy WHERE 1")
 	defer rows.Close()
 
-	fileName, _ := utils.GetFilePath("devices.csv")
-	err := utils.WriteFile(fileName, rows)
-	if err != nil {
-		fmt.Println(err)
-	}
+	// fileName, _ := utils.GetFilePath("devices.csv")
+	// err := utils.WriteFile(fileName, rows)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 
 	//sql => xlsx
 	// fileName2, _ := utils.GetFilePath("All.xlsx")
@@ -27,6 +27,13 @@ func main() {
 	// if err != nil {
 	// 	fmt.Println(err)
 	// }
+
+	//sql => json
+	fileName3, _ := utils.GetFilePath("All.json")
+	err := utils.WriteJsonFile(fileName3, rows)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	//csv=>insert
 	//utils.CsvTosql("test", "./test2.csv", "./test2.sql")
