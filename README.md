@@ -4,6 +4,8 @@
 
 
 
+[TOC]
+
 简单介绍一下：
 
 ##### 一、配置文件：
@@ -40,7 +42,7 @@ DbName = order
 utils.CsvTosql("test", "./test2.csv", "./test2.sql")
 ```
 
-四、查询结果倒出xlsx
+##### 四、查询结果倒出xlsx
 
 ```
 	//sql => xlsx
@@ -58,6 +60,44 @@ xlsx: github.com/tealeg/xlsx
 mysql: github.com/go-sql-driver/mysql
 ini: gopkg.in/ini.v1
 ```
+
+##### 五、csv导入到数据库脚本
+
+执行脚本：
+
+utils/csv_to_db_test.go
+
+```go
+CSVtoDb("user", "/Users/hanxiang1/work/gogo/sql_tool/output/user.csv")
+```
+
+配置参数
+
+utils/csv_to_db.go
+
+```go
+const (
+	DELIMITER           = ',' // default delimiter for csv files
+	MAX_SQL_CONNECTIONS = 10  // default max_connections of mysql is 150,
+	Db                  = "mysql"
+	DbHost              = "127.0.0.1"
+	DbPort              = "3306"
+	DbUser              = "root"
+	DbPassWord          = "xiangzai"
+	DbName              = "sqlstudy"
+	Step                = 10 //每次插入数据
+)
+```
+
+本机测试的话 100w数据 66s导入完成
+
+
+
+**设置testing的超时时间**
+vscode的左下角设置-用户设置-搜索下面的关键字
+go test timeout
+
+修改30s->120s
 
 
 
@@ -131,7 +171,6 @@ Example with a timeout of 1 second (1000 milliseconds):
 ```sql
 SELECT /*+ MAX_EXECUTION_TIME(1000) */ * FROM t1 INNER JOIN t2 WHERE ...
 ```
-
 
 
 

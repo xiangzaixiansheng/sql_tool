@@ -15,6 +15,7 @@ import (
 
 //csv 导入db的脚本
 
+//在这里配置mysql信息
 const (
 	DELIMITER           = ',' // default delimiter for csv files
 	MAX_SQL_CONNECTIONS = 10  // default max_connections of mysql is 150,
@@ -24,6 +25,7 @@ const (
 	DbUser              = "root"
 	DbPassWord          = "xiangzai"
 	DbName              = "sqlstudy"
+	Step                = 10 //每次插入数据
 )
 
 func CSVtoDb(tableName, filePath string) {
@@ -42,7 +44,6 @@ func CSVtoDb(tableName, filePath string) {
 	}
 	db.SetMaxIdleConns(MAX_SQL_CONNECTIONS)
 	defer db.Close()
-	fmt.Println("=====db=====")
 	// --------------------------------------------------------------------------
 	// 加载文件并读取
 	// --------------------------------------------------------------------------
@@ -65,7 +66,6 @@ func CSVtoDb(tableName, filePath string) {
 		available <- true
 	}
 
-	// start status logger
 	startLogger(&insertions, &connections)
 
 	// start connection controller
@@ -77,15 +77,26 @@ func CSVtoDb(tableName, filePath string) {
 
 	//创建csv读取接口实例
 	ReadCsv := csv.NewReader(opencast)
+	var firstRow []string
 
 	var wg sync.WaitGroup
 	id := 1
 	isFirstRow := true
+	recorArr := make([][]string, 0, Step+10)
 
 	for {
 		//获取一行内容，一般为第一行内容
 		record, err := ReadCsv.Read() //返回切片类型：[chen  hai wei]
 		if err == io.EOF {
+			//处理最后一波数据
+			if len(recorArr) > 0 && <-available {
+				//组装对应的sql
+				query = getSqlStr(tableName, firstRow, len(recorArr))
+				connections += 1
+				id += 1
+				wg.Add(1)
+				insert(id, query, db, callback, &connections, &wg, strArrToInterface(recorArr))
+			}
 			break
 		}
 		if err != nil {
@@ -93,39 +104,62 @@ func CSVtoDb(tableName, filePath string) {
 		}
 		if isFirstRow {
 			// 解析第一行的表头
-			parseColumns(tableName, record, &query)
+			firstRow = record
 			isFirstRow = false
-		} else if <-available { // wait for available database connection
-			connections += 1
-			id += 1
-			wg.Add(1)
-			go insert(id, query, db, callback, &connections, &wg, strToInterface(record))
+		} else { // wait for available database connection
+			recorArr = append(recorArr, record)
+
+			if len(recorArr) > Step-1 && <-available {
+				insertArr := make([][]string, len(recorArr))
+				copy(insertArr, recorArr)
+				//清空slice
+				recorArr = make([][]string, 0, Step+10)
+				//组装对应的sql
+				query = getSqlStr(tableName, firstRow, len(insertArr))
+				connections += 1
+				id += 1
+				wg.Add(1)
+				go insert(id, query, db, callback, &connections, &wg, strArrToInterface(insertArr))
+			}
 		}
 		wg.Wait()
-
-		endTime := time.Since(start)
-		log.Printf("Status: %d insertions\n", insertions)
-		log.Printf("Execution time: %s\n", endTime)
-
 	}
+	endTime := time.Since(start)
+	log.Printf("Status: %d insertions\n", insertions)
+	log.Printf("Execution time: %s\n", endTime)
 
 }
 
-func parseColumns(tableName string, columns []string, query *string) {
-	*query = "INSERT INTO " + tableName + " ("
-	values := "VALUES ("
+//step 一次插入的条数
+func getSqlStr(tableName string, columns []string, step int) string {
+	query := "INSERT INTO " + tableName + " ("
 	for i, c := range columns {
 		if i == 0 {
-			*query += c
-			values += "?"
+			query += c
 		} else {
-			*query += ", " + c
-			values += ", ?"
+			query += ", " + c
 		}
 	}
-	values += ")"
-	*query += ") " + values
-	fmt.Println("query", *query)
+	//循环value
+	values := "VALUES "
+	for index := 0; index < step; index++ {
+		for i := range columns {
+			if i == 0 {
+				values += "( ?"
+			} else {
+				values += ", ?"
+			}
+		}
+		//处理value的
+		if index == step-1 {
+			values += ")"
+		} else {
+			values += "),"
+		}
+	}
+
+	query += ") " + values
+	return query
 }
 
 // inserts data into database
@@ -143,11 +177,12 @@ func insert(id int, query string, db *sql.DB, callback chan<- int, conns *int, w
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(args...)
+	result, err := stmt.Exec(args...)
 	if err != nil {
 		log.Printf("ID: %d (%d conns), %s\n", id, *conns, err.Error())
 	}
-
+	affectCnt, _ := result.RowsAffected()
+	fmt.Println("RowsAffected===", affectCnt)
 	// finished inserting, send id over channel to signalize termination of routine
 	callback <- id
 	wg.Done()
@@ -180,11 +215,14 @@ func startLogger(insertions, connections *int) {
 	}()
 }
 
-// convert []string to []interface{}
-func strToInterface(s []string) []interface{} {
-	i := make([]interface{}, len(s))
-	for k, v := range s {
-		i[k] = v
+// convert [][]string to []interface{}
+//二维数组转换成[]interface{}
+func strArrToInterface(s [][]string) []interface{} {
+	i := make([]interface{}, 0, len(s)*len(s[0]))
+	for _, v1 := range s {
+		for _, v := range v1 {
+			i = append(i, v)
+		}
 	}
 	return i
 }
